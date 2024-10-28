@@ -39,7 +39,7 @@ jobs:
               repo: context.repo.repo
             }).catch(() => null);
             let newTag;
-            if (latestRelease) {
+            if (latestRelease && latestRelease.data) {
               const tag = latestRelease.data.tag_name;
               const [major, minor, patch] = tag.replace('v', '').split('.').map(Number);
               newTag = `v${major}.${minor}.${patch + 1}`;
