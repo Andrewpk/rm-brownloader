@@ -31,10 +31,10 @@ jobs:
 
       - name: Get latest tag
         id: get_latest_tag
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
-            const latestRelease = await github.repos.getLatestRelease({
+            const latestRelease = await github.rest.repos.getLatestRelease({
               owner: context.repo.owner,
               repo: context.repo.repo
             }).catch(() => null);
