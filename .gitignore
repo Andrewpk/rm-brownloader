@@ -1,5 +1,6 @@
 # Ignore PyCharm project files
 .idea/
+.idea/workspace.xml
 
 # Ignore Python cache files
 __pycache__/
