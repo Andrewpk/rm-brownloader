@@ -1,4 +1,5 @@
 import os
+from os import mkdir
 
 import requests
 
@@ -9,6 +10,7 @@ if __name__ == '__main__':
     base_mp3_url = 'https://rm-brown-soudboard.s3.amazonaws.com/'
     for sound in config:
         download_url = base_mp3_url + sound['name'] + '.mp3'
+        mkdir('mp3s')
         filename = os.path.join(os.getcwd(), 'mp3s', sound['name'])
         filename = filename + '.mp3'
         with open(filename, 'wb') as file:
