@@ -29,8 +29,42 @@ jobs:
       - name: Zip mp3s directory
         run: zip -r mp3s.zip mp3s
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Get latest tag
+        id: get_latest_tag
+        uses: actions/github-script@v6
         with:
-          name: mp3s-zip
-          path: mp3s.zip
+          script: |
+            const latestRelease = await github.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            }).catch(() => null);
+            let newTag;
+            if (latestRelease) {
+              const tag = latestRelease.data.tag_name;
+              const [major, minor, patch] = tag.replace('v', '').split('.').map(Number);
+              newTag = `v${major}.${minor}.${patch + 1}`;
+            } else {
+              newTag = 'v1.0.0';
+            }
+            return newTag;
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_latest_tag.outputs.result }}
+          release_name: 'Release ${{ steps.get_latest_tag.outputs.result }}'
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./mp3s.zip
+          asset_name: mp3s.zip
+          asset_content_type: application/zip
