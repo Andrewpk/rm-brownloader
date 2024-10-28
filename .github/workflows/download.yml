@@ -1,0 +1,36 @@
+name: download.yml
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Add Poetry to PATH
+        run: echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Run main.py
+        run: poetry run python main.py
+
+      - name: Zip mp3s directory
+        run: zip -r mp3s.zip mp3s
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mp3s-zip
+          path: mp3s.zip
