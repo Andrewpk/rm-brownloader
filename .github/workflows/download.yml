@@ -4,35 +4,15 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      upload_url: ${{ steps.release.outputs.upload_url }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Release Please
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          release-type: simple
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   download:
-    needs: release
-    if: ${{ needs.release.outputs.release_created }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed to get all tags
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -54,12 +34,68 @@ jobs:
       - name: Zip mp3s directory
         run: zip -r mp3s.zip mp3s
 
+      - name: Get next version
+        id: next_version
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              // Get all tags
+              const { data: tags } = await github.rest.repos.listTags({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+              
+              // Find latest version tag
+              const versionTags = tags.filter(tag => tag.name.match(/^v\d+\.\d+\.\d+$/));
+              
+              if (versionTags.length === 0) {
+                // No version tags found, start with v1.0.0
+                core.setOutput('next_version', 'v1.0.0');
+                return 'v1.0.0';
+              }
+              
+              // Sort tags by version (newest first)
+              versionTags.sort((a, b) => {
+                const aVersion = a.name.replace('v', '').split('.').map(Number);
+                const bVersion = b.name.replace('v', '').split('.').map(Number);
+                
+                for (let i = 0; i < 3; i++) {
+                  if (aVersion[i] !== bVersion[i]) {
+                    return bVersion[i] - aVersion[i];
+                  }
+                }
+                return 0;
+              });
+              
+              // Get latest version and increment patch
+              const latest = versionTags[0].name;
+              const [major, minor, patch] = latest.replace('v', '').split('.').map(Number);
+              const nextVersion = `v${major}.${minor}.${patch + 1}`;
+              
+              core.setOutput('next_version', nextVersion);
+              return nextVersion;
+            } catch (error) {
+              core.setFailed(`Error getting next version: ${error.message}`);
+            }
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.next_version.outputs.next_version }}
+          release_name: Release ${{ steps.next_version.outputs.next_version }}
+          draft: false
+          prerelease: false
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.release.outputs.upload_url }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./mp3s.zip
           asset_name: mp3s.zip
           asset_content_type: application/zip
