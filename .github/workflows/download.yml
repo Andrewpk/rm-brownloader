@@ -4,9 +4,31 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      upload_url: ${{ steps.release.outputs.upload_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: simple
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   download:
+    needs: release
+    if: ${{ needs.release.outputs.release_created }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,36 +54,12 @@ jobs:
       - name: Zip mp3s directory
         run: zip -r mp3s.zip mp3s
 
-      - name: Get latest tag
-        id: get_latest_tag
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const latestRelease = await github.rest.repos.getLatestRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            }).catch(() => null);
-            const tag = latestRelease.data.tag_name;
-            core.setOutput('tag', tag);
-            return tag;
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.get_latest_tag.outputs.tag }}
-          release_name: 'Release ${{ steps.get_latest_tag.outputs.result }}'
-          draft: false
-          prerelease: false
-
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ needs.release.outputs.upload_url }}
           asset_path: ./mp3s.zip
           asset_name: mp3s.zip
           asset_content_type: application/zip
