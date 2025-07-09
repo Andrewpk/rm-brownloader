@@ -41,15 +41,9 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo
             }).catch(() => null);
-            let newTag;
-            if (latestRelease && latestRelease.data) {
-              const tag = latestRelease.data.tag_name;
-              const [major, minor, patch] = tag.replace('v', '').split('.').map(Number);
-              newTag = `v${major}.${minor}.${patch + 1}`;
-            } else {
-              newTag = 'v1.0.0';
-            }
-            return newTag;
+            const tag = latestRelease.data.tag_name;
+            core.setOutput('tag', tag);
+            return tag;
 
       - name: Create Release
         id: create_release
@@ -57,7 +51,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.get_latest_tag.outputs.result }}
+          tag_name: ${{ steps.get_latest_tag.outputs.tag }}
           release_name: 'Release ${{ steps.get_latest_tag.outputs.result }}'
           draft: false
           prerelease: false
